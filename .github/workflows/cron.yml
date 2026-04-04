@@ -1,0 +1,45 @@
+name: Cron
+
+on:
+  schedule:
+    - cron: '0,30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    env:
+      TZ: Europe/Rome
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tests
+        run: pytest tests/
+
+      - name: Run script
+        env:
+          READWISE_ACCESS_TOKEN: ${{ secrets.READWISE_ACCESS_TOKEN }}
+          GITHUB_TOKEN_WEBSITE: ${{ secrets.GITHUB_TOKEN_WEBSITE }}
+          GITHUB_REPO_OWNER: ${{ vars.GITHUB_REPO_OWNER }}
+          GITHUB_REPO_NAME: ${{ vars.GITHUB_REPO_NAME }}
+          READWISE_TAG: ${{ vars.READWISE_TAG }}
+        run: python main.py
+
+      - name: Commit state
+        uses: stefanzweifel/git-auto-commit-action@v5
