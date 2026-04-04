@@ -1,7 +1,5 @@
 import re
 from datetime import datetime
-from urllib.parse import urlparse
-
 
 def slugify(text):
     text = text.lower()
@@ -29,8 +27,6 @@ def generate_post(document, highlights, source_url, doc_tags, date=None):
         date = datetime.now().astimezone()
     date_iso = date.isoformat(timespec='seconds')
 
-    hostname = urlparse(source_url).netloc.replace('www.', '') if source_url else ''
-
     all_tags = ['news'] + [t for t in doc_tags if t != 'hugo-news']
     tags_yaml = '\n'.join(f'  - {t}' for t in all_tags)
 
@@ -54,8 +50,7 @@ draft: false
     body_parts = []
 
     if source_url:
-        display = hostname or source_url
-        body_parts.append(f"*Fonte: [{display}]({source_url})*\n")
+        body_parts.append(f"*Fonte: [{source_url}]({source_url})*\n")
 
     if notes:
         body_parts.append(notes + "\n")

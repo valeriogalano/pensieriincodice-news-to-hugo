@@ -111,7 +111,7 @@ def test_news_tag_is_first():
 
 def test_source_link_in_body():
     _, content = generate_post(doc(), [], "https://example.com/article", [], date=FIXED_DATE)
-    assert "[example.com](https://example.com/article)" in content
+    assert "[https://example.com/article](https://example.com/article)" in content
 
 
 def test_notes_in_body():
