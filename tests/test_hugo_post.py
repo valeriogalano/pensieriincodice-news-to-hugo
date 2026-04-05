@@ -89,6 +89,11 @@ def test_news_tag_always_added():
     assert "  - news" in content
 
 
+def test_repost_tag_always_added():
+    _, content = generate_post(doc(), [], "https://example.com", [], date=FIXED_DATE)
+    assert "  - repost" in content
+
+
 def test_hugo_news_tag_excluded():
     _, content = generate_post(doc(), [], "https://example.com", ["hugo-news"], date=FIXED_DATE)
     assert "hugo-news" not in content

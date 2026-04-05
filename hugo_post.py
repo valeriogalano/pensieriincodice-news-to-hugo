@@ -27,7 +27,7 @@ def generate_post(document, highlights, source_url, doc_tags, date=None):
         date = datetime.now().astimezone()
     date_iso = date.isoformat(timespec='seconds')
 
-    all_tags = ['news'] + [t for t in doc_tags if t != 'hugo-news']
+    all_tags = ['news', 'repost'] + [t for t in doc_tags if t != 'hugo-news']
     tags_yaml = '\n'.join(f'  - {t}' for t in all_tags)
 
     escaped_title = title.replace('"', '\\"')
