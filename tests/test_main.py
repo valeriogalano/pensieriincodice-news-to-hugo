@@ -1,5 +1,4 @@
 import json
-import os
 import pytest
 from unittest.mock import patch, mock_open
 
@@ -12,96 +11,106 @@ def env_vars(monkeypatch):
     monkeypatch.setenv("GH_REPO_NAME", "repo")
 
 
-def load_state_from(data):
+def load_processed_from(data):
     import main
     with patch("builtins.open", mock_open(read_data=json.dumps(data).encode())):
-        return main.load_state()
+        return main.load_processed()
 
 
-def test_load_state_new_format():
-    import main
-    state = {"last_fetch": "2026-04-04T10:00:00", "processed_ids": ["id1"]}
-    result = load_state_from(state)
-    assert result["last_fetch"] == "2026-04-04T10:00:00"
-    assert result["processed_ids"] == ["id1"]
+def test_load_processed_flat_array():
+    result = load_processed_from(["id1", "id2"])
+    assert result == ["id1", "id2"]
 
 
-def test_load_state_migrates_old_array_format():
-    import main
-    result = load_state_from(["id1", "id2"])
-    assert result["last_fetch"] is None
-    assert result["processed_ids"] == ["id1", "id2"]
+def test_load_processed_migrates_old_state_format():
+    result = load_processed_from({"last_fetch": "2026-04-04T10:00:00", "processed_ids": ["id1"]})
+    assert result == ["id1"]
 
 
-def test_load_state_file_not_found():
+def test_load_processed_file_not_found():
     import main
     with patch("builtins.open", side_effect=FileNotFoundError):
-        state = main.load_state()
-    assert state["last_fetch"] is None
-    assert state["processed_ids"] == []
+        result = main.load_processed()
+    assert result == []
 
 
-def test_since_uses_last_fetch_when_available():
+def test_since_uses_lookback_hours_env(monkeypatch):
     import main
-    state = {"last_fetch": "2026-04-03T10:00:00", "processed_ids": []}
+    monkeypatch.setenv("READWISE_LOOKBACK_HOURS", "48")
     captured = {}
 
     def fake_get_tagged(tag, since):
         captured["since"] = since
         return []
 
-    with patch.object(main, "load_state", return_value=state), \
-         patch.object(main, "save_state"), \
-         patch("main.Readwise") as MockRW:
+    with patch("main.Readwise") as MockRW:
         MockRW.return_value.get_tagged_documents.side_effect = fake_get_tagged
         main.main()
 
-    assert captured["since"] == "2026-04-03T10:00:00"
-
-
-def test_since_uses_fallback_when_no_last_fetch():
-    import main
     from datetime import datetime, timedelta
-    state = {"last_fetch": None, "processed_ids": []}
+    since_dt = datetime.fromisoformat(captured["since"])
+    assert since_dt > datetime.now() - timedelta(hours=49)
+    assert since_dt < datetime.now() - timedelta(hours=47)
+
+
+def test_since_defaults_to_72h(monkeypatch):
+    import main
+    monkeypatch.delenv("READWISE_LOOKBACK_HOURS", raising=False)
     captured = {}
 
     def fake_get_tagged(tag, since):
         captured["since"] = since
         return []
 
-    with patch.object(main, "load_state", return_value=state), \
-         patch.object(main, "save_state"), \
-         patch("main.Readwise") as MockRW:
+    with patch("main.Readwise") as MockRW:
         MockRW.return_value.get_tagged_documents.side_effect = fake_get_tagged
         main.main()
 
+    from datetime import datetime, timedelta
     since_dt = datetime.fromisoformat(captured["since"])
-    assert since_dt < datetime.now() - timedelta(days=6)
+    assert since_dt > datetime.now() - timedelta(hours=73)
+    assert since_dt < datetime.now() - timedelta(hours=71)
 
 
-def test_last_fetch_updated_after_run():
+def test_no_commit_when_nothing_published():
     import main
-    state = {"last_fetch": None, "processed_ids": []}
-    saved = {}
-
-    with patch.object(main, "load_state", return_value=state), \
-         patch.object(main, "save_state", side_effect=lambda s: saved.update(s)), \
-         patch("main.Readwise") as MockRW:
+    with patch("main.Readwise") as MockRW, \
+         patch("main.save_processed") as mock_save:
         MockRW.return_value.get_tagged_documents.return_value = []
         main.main()
-
-    assert saved.get("last_fetch") is not None
+    mock_save.assert_not_called()
 
 
 def test_already_processed_ids_skipped():
     import main
-    state = {"last_fetch": "2026-04-03T10:00:00", "processed_ids": ["id-already"]}
     doc = {"id": "id-already", "title": "T", "source_url": "https://x.com", "tags": {"hugo-news": {}}}
 
-    with patch.object(main, "load_state", return_value=state), \
-         patch.object(main, "save_state"), \
+    with patch("main.load_processed", return_value=["id-already"]), \
+         patch("main.save_processed") as mock_save, \
          patch("main.Readwise") as MockRW, \
          patch("main.GitHubClient") as MockGH:
         MockRW.return_value.get_tagged_documents.return_value = [doc]
         main.main()
         MockGH.return_value.create_post.assert_not_called()
+        mock_save.assert_not_called()
+
+
+def test_save_called_only_when_post_published():
+    import main
+    doc = {"id": "new-id", "title": "T", "source_url": "https://x.com",
+           "tags": {"hugo-news": {}}, "notes": ""}
+
+    with patch("main.load_processed", return_value=[]), \
+         patch("main.save_processed") as mock_save, \
+         patch("main.Readwise") as MockRW, \
+         patch("main.GitHubClient") as MockGH, \
+         patch("main.generate_post", return_value=("file.md", "content")), \
+         patch("main.clean_url", return_value="https://x.com"):
+        MockRW.return_value.get_tagged_documents.return_value = [doc]
+        MockRW.return_value.get_highlights.return_value = []
+        MockGH.return_value.create_post.return_value = True
+        main.main()
+
+    mock_save.assert_called_once()
+    saved_ids = mock_save.call_args[0][0]
+    assert "new-id" in saved_ids

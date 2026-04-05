@@ -39,6 +39,7 @@ jobs:
           GH_REPO_OWNER: ${{ vars.GH_REPO_OWNER }}
           GH_REPO_NAME: ${{ vars.GH_REPO_NAME }}
           READWISE_TAG: ${{ vars.READWISE_TAG }}
+          READWISE_LOOKBACK_HOURS: ${{ vars.READWISE_LOOKBACK_HOURS }}
         run: python main.py
 
       - name: Commit state
