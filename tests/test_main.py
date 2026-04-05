@@ -53,7 +53,7 @@ def test_since_uses_lookback_hours_env(monkeypatch):
     assert since_dt < datetime.now() - timedelta(hours=47)
 
 
-def test_since_defaults_to_72h(monkeypatch):
+def test_since_defaults_to_48h(monkeypatch):
     import main
     monkeypatch.delenv("READWISE_LOOKBACK_HOURS", raising=False)
     captured = {}
@@ -68,8 +68,8 @@ def test_since_defaults_to_72h(monkeypatch):
 
     from datetime import datetime, timedelta
     since_dt = datetime.fromisoformat(captured["since"])
-    assert since_dt > datetime.now() - timedelta(hours=73)
-    assert since_dt < datetime.now() - timedelta(hours=71)
+    assert since_dt > datetime.now() - timedelta(hours=49)
+    assert since_dt < datetime.now() - timedelta(hours=47)
 
 
 def test_no_commit_when_nothing_published():
