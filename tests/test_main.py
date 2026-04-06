@@ -13,7 +13,7 @@ def env_vars(monkeypatch):
 
 def load_processed_from(data):
     import main
-    with patch("builtins.open", mock_open(read_data=json.dumps(data).encode())):
+    with patch("builtins.open", mock_open(read_data=json.dumps(data))):
         return main.load_processed()
 
 

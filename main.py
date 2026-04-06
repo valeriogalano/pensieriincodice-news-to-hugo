@@ -23,8 +23,8 @@ DEFAULT_LOOKBACK_HOURS = 48
 
 def load_processed():
     try:
-        with open(READWISE_JSON, "rb") as f:
-            data = json.loads(f.read())
+        with open(READWISE_JSON) as f:
+            data = json.load(f)
         if isinstance(data, list):
             return data
         # migrazione dal vecchio formato con last_fetch
@@ -35,8 +35,8 @@ def load_processed():
 
 
 def save_processed(processed_ids):
-    with open(READWISE_JSON, "wb") as f:
-        f.write(json.dumps(processed_ids, indent=4).encode())
+    with open(READWISE_JSON, "w") as f:
+        json.dump(processed_ids, f, indent=4)
 
 
 def main():
